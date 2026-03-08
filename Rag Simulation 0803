@@ -1,0 +1,327 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Visual RAG Simulator</title>
+
+<style>
+
+body{
+font-family:Inter,system-ui;
+background:#020617;
+color:white;
+margin:0;
+padding:30px;
+}
+
+h1{
+text-align:center;
+}
+
+.container{
+max-width:1200px;
+margin:auto;
+}
+
+.card{
+background:#0f172a;
+padding:20px;
+border-radius:12px;
+margin-bottom:20px;
+}
+
+textarea,input{
+width:100%;
+padding:12px;
+border-radius:8px;
+border:none;
+margin-top:10px;
+margin-bottom:10px;
+}
+
+button{
+background:#6366f1;
+border:none;
+padding:10px 18px;
+border-radius:8px;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#4f46e5;
+}
+
+.chunk{
+background:#1e293b;
+padding:10px;
+border-radius:8px;
+margin:6px 0;
+font-size:13px;
+}
+
+.canvasbox{
+background:black;
+border-radius:10px;
+padding:10px;
+}
+
+.prompt{
+background:#020617;
+padding:12px;
+border-radius:10px;
+white-space:pre-line;
+font-size:13px;
+}
+
+.answer{
+background:#15803d;
+padding:14px;
+border-radius:10px;
+}
+
+</style>
+
+</head>
+<body>
+
+<h1>Visual RAG Simulator</h1>
+
+<div class="container">
+
+<div class="card">
+
+<h3>1️⃣ Add Document</h3>
+
+<textarea id="doc" rows="4" placeholder="Paste knowledge document"></textarea>
+
+<button onclick="chunk()">Chunk Document</button>
+
+<div id="chunks"></div>
+
+</div>
+
+<div class="card">
+
+<h3>2️⃣ Vector Embeddings</h3>
+
+<button onclick="embed()">Generate Embeddings</button>
+
+<p>Each chunk becomes a vector plotted in space.</p>
+
+</div>
+
+<div class="card">
+
+<h3>3️⃣ Vector Database Map</h3>
+
+<div class="canvasbox">
+
+<canvas id="map" width="900" height="400"></canvas>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h3>4️⃣ Ask Query</h3>
+
+<input id="query" placeholder="Ask something">
+
+<button onclick="search()">Search Vector Space</button>
+
+<div id="prompt"></div>
+
+</div>
+
+<div class="card">
+
+<h3>5️⃣ LLM Response</h3>
+
+<button onclick="generate()">Generate Answer</button>
+
+<div id="answer"></div>
+
+</div>
+
+</div>
+
+<script>
+
+let chunks=[]
+let vectors=[]
+let retrieved=[]
+let queryVector=null
+
+const canvas=document.getElementById("map")
+const ctx=canvas.getContext("2d")
+
+function chunk(){
+
+let text=document.getElementById("doc").value
+let size=120
+
+chunks=[]
+
+for(let i=0;i<text.length;i+=size){
+chunks.push(text.slice(i,i+size))
+}
+
+let html=""
+
+chunks.forEach((c,i)=>{
+
+html+=`<div class="chunk">Chunk ${i+1}: ${c}</div>`
+
+})
+
+document.getElementById("chunks").innerHTML=html
+
+}
+
+function randomVector(){
+
+return [Math.random(),Math.random()]
+
+}
+
+function embed(){
+
+vectors=[]
+
+chunks.forEach(c=>{
+
+vectors.push({
+text:c,
+vec:randomVector()
+})
+
+})
+
+draw()
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+vectors.forEach(v=>{
+
+let x=v.vec[0]*canvas.width
+let y=v.vec[1]*canvas.height
+
+ctx.beginPath()
+ctx.arc(x,y,6,0,Math.PI*2)
+ctx.fillStyle="cyan"
+ctx.fill()
+
+})
+
+}
+
+function cosine(a,b){
+
+return (a[0]*b[0]+a[1]*b[1])/
+(Math.sqrt(a[0]*a[0]+a[1]*a[1])*
+Math.sqrt(b[0]*b[0]+b[1]*b[1]))
+
+}
+
+function search(){
+
+let query=document.getElementById("query").value
+
+queryVector=randomVector()
+
+let scored=vectors.map(v=>({
+
+...v,
+score:cosine(queryVector,v.vec)
+
+}))
+
+scored.sort((a,b)=>b.score-a.score)
+
+retrieved=scored.slice(0,3)
+
+drawResults()
+
+renderPrompt(query)
+
+}
+
+function drawResults(){
+
+draw()
+
+retrieved.forEach(r=>{
+
+let x=r.vec[0]*canvas.width
+let y=r.vec[1]*canvas.height
+
+ctx.beginPath()
+ctx.arc(x,y,8,0,Math.PI*2)
+ctx.fillStyle="lime"
+ctx.fill()
+
+})
+
+let qx=queryVector[0]*canvas.width
+let qy=queryVector[1]*canvas.height
+
+ctx.beginPath()
+ctx.arc(qx,qy,10,0,Math.PI*2)
+ctx.fillStyle="red"
+ctx.fill()
+
+}
+
+function renderPrompt(query){
+
+let context=retrieved.map(r=>r.text).join("\n\n")
+
+document.getElementById("prompt").innerHTML=
+
+`<div class="prompt">
+Question:
+${query}
+
+Retrieved Context:
+${context}
+
+Instruction:
+Answer using retrieved information.
+</div>`
+
+}
+
+function generate(){
+
+let query=document.getElementById("query").value
+
+let context=retrieved.map(r=>r.text).join(" ")
+
+let ans=
+
+`The answer to "${query}" is generated using the retrieved chunks.
+
+Relevant information suggests:
+
+${context.slice(0,200)}...
+
+(This simulates how an LLM grounds responses using RAG.)`
+
+document.getElementById("answer").innerHTML=
+
+`<div class="answer">${ans}</div>`
+
+}
+
+</script>
+
+</body>
+</html>
+```
